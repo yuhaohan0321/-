@@ -1,0 +1,214 @@
+﻿{% extends "base.html" %}
+{% block title %}上传数据文件 - 南理工 3D打印数据库{% endblock %}
+{% block content %}
+<div class="mb-3">
+    <a href="{{ url_for('excel.datasets') }}" class="btn btn-outline-secondary btn-sm">← 返回列表</a>
+</div>
+
+{% if not preview_mode %}
+<!-- ====== 第一步：选择文件 ====== -->
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header fw-bold">📤 上传数据文件</div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">选择文件</label>
+                        <input type="file" class="form-control" id="file" name="file"
+                               accept=".xlsx,.xls,.csv,.tsv" required>
+                        <div class="form-text">
+                            支持 <strong>Excel</strong>（.xlsx / .xls）和 <strong>CSV</strong>（.csv / .tsv）。
+                            上传后将显示预览，可选择标题行和导入列。
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">📋 预览文件</button>
+                </form>
+            </div>
+        </div>
+        <div class="card mt-4 shadow-sm">
+            <div class="card-header fw-bold">💡 使用提示</div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>上传后先预览，再选择标题行和数据范围</li>
+                    <li>如果前几行是说明文字，将标题行设为实际列名所在行</li>
+                    <li>可以勾选/取消列来控制导入哪些字段</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- ====== 第二步：预览与配置 ====== -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4>📋 预览：{{ filename }}</h4>
+    <span class="badge bg-info fs-6">{{ total_rows }} 行 × {{ max_cols }} 列</span>
+</div>
+
+<form method="POST" action="{{ url_for('excel.upload_confirm') }}" id="importForm">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="selected_cols" id="selectedCols" value="">
+
+    <!-- 设置区 -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">🏷️ 标题行（列名所在行）</label>
+                    <input type="number" class="form-control" name="header_row" id="headerRow"
+                           min="1" max="{{ total_rows }}" value="1"
+                           onchange="highlightHeaderRow()">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">📊 数据起始行</label>
+                    <input type="number" class="form-control" name="data_start" id="dataStart"
+                           min="2" max="{{ total_rows + 1 }}" value="2"
+                           onchange="highlightHeaderRow()">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">📦 数据集名称</label>
+                    <input type="text" class="form-control" name="name" id="dsName"
+                           placeholder="留空使用文件名">
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary flex-fill"
+                            onclick="selectAllCols(true)">全选列</button>
+                    <button type="button" class="btn btn-outline-secondary flex-fill"
+                            onclick="selectAllCols(false)">取消全选</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 预览表格 -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold">👁️ 预览（显示前 {{ preview_rows|length }} 行，共 {{ total_rows }} 行）</span>
+            {% if total_rows > preview_limit %}
+            <span class="text-warning small">⚠ 仅预览前 {{ preview_limit }} 行</span>
+            {% endif %}
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height:500px;overflow:auto;">
+                <table class="table table-sm table-bordered mb-0" id="previewTable">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th style="width:50px;text-align:center;">#</th>
+                            {% for ci in range(max_cols) %}
+                            <th style="text-align:center;min-width:80px;">
+                                <input type="checkbox" class="col-checkbox" data-col="{{ ci }}"
+                                       checked onchange="updateSelectedCols()">
+                                <small class="text-muted">列{{ ci + 1 }}</small>
+                            </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in preview_rows %}
+                        {% set row_loop = loop %}
+                        <tr class="preview-row" data-row="{{ loop.index }}">
+                            <td class="text-center fw-bold row-num
+                                {{ 'table-primary' if loop.index == 1 else '' }}"
+                                id="rowNum{{ loop.index }}">
+                                {{ loop.index }}
+                            </td>
+                            {% for cell in row %}
+                            <td class="{{ 'table-primary' if row_loop.index == 1 else '' }}
+                                {{ 'text-muted fst-italic' if not cell }}">
+                                {{ cell if cell else '—' }}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="d-flex gap-2 mb-4">
+        <a href="{{ url_for('excel.upload') }}" class="btn btn-outline-secondary">🔄 重新选择文件</a>
+        <button type="submit" class="btn btn-success flex-fill"
+                onclick="return confirmImport()">✅ 确认导入</button>
+    </div>
+</form>
+
+<script>
+// 初始化
+highlightHeaderRow();
+updateSelectedCols();
+
+function highlightHeaderRow() {
+    const headerRowNum = parseInt(document.getElementById('headerRow').value);
+    const dataStart = parseInt(document.getElementById('dataStart').value);
+
+    // 重置所有行样式
+    document.querySelectorAll('.preview-row').forEach(tr => {
+        tr.classList.remove('table-success', 'table-primary');
+        tr.querySelectorAll('td').forEach(td => {
+            td.classList.remove('table-primary', 'table-success');
+        });
+    });
+
+    // 高亮标题行（蓝色）
+    const headerTr = document.querySelector('.preview-row[data-row="' + headerRowNum + '"]');
+    if (headerTr) {
+        headerTr.classList.add('table-primary');
+        headerTr.querySelectorAll('td').forEach(td => td.classList.add('table-primary'));
+    }
+
+    // 高亮数据行（绿色）
+    for (let r = dataStart; r <= {{ preview_rows|length }}; r++) {
+        const dataTr = document.querySelector('.preview-row[data-row="' + r + '"]');
+        if (dataTr) {
+            dataTr.classList.add('table-success');
+            dataTr.querySelectorAll('td:not(:first-child)').forEach(td => td.classList.add('table-success'));
+        }
+    }
+
+    // 行号列高亮
+    document.querySelectorAll('.row-num').forEach(td => {
+        td.classList.remove('table-primary', 'table-success');
+    });
+    const headerNum = document.getElementById('rowNum' + headerRowNum);
+    if (headerNum) headerNum.classList.add('table-primary');
+    for (let r = dataStart; r <= {{ preview_rows|length }}; r++) {
+        const dataNum = document.getElementById('rowNum' + r);
+        if (dataNum) dataNum.classList.add('table-success');
+    }
+}
+
+function selectAllCols(checked) {
+    document.querySelectorAll('.col-checkbox').forEach(cb => {
+        cb.checked = checked;
+    });
+    updateSelectedCols();
+}
+
+function updateSelectedCols() {
+    const selected = [];
+    document.querySelectorAll('.col-checkbox:checked').forEach(cb => {
+        selected.push(cb.dataset.col);
+    });
+    document.getElementById('selectedCols').value = selected.join(',');
+}
+
+function confirmImport() {
+    const sel = document.getElementById('selectedCols').value;
+    if (!sel) {
+        alert('请至少选择一列导入');
+        return false;
+    }
+    const headerRow = parseInt(document.getElementById('headerRow').value);
+    const dataStart = parseInt(document.getElementById('dataStart').value);
+    if (dataStart <= headerRow) {
+        alert('数据起始行必须在标题行之后');
+        return false;
+    }
+    return true;
+}
+</script>
+{% endif %}
+{% endblock %}

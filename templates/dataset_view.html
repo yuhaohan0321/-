@@ -1,0 +1,220 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ dataset.name }} - 数据可视化{% endblock %}
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script>
+{% endblock %}
+{% block content %}
+<div class="mb-3">
+    <a href="{{ url_for('excel.datasets') }}" class="btn btn-outline-secondary btn-sm">← 返回列表</a>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>📈 {{ dataset.name }}</h2>
+        <p class="text-muted mb-0">
+            文件: <code>{{ dataset.original_filename }}</code> |
+            数据行数: <span class="badge bg-info">{{ dataset.row_count }}</span>
+        </p>
+    </div>
+</div>
+
+{% if columns and data_rows %}
+<!-- 图表配置区 -->
+<div class="card mb-4 shadow-sm">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label fw-bold">图表类型</label>
+                <select id="chartType" class="form-select" onchange="renderChart()">
+                    <option value="bar">柱状图</option>
+                    <option value="line">折线图</option>
+                    <option value="pie">饼图</option>
+                    <option value="scatter">散点图</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold">X 轴 / 分类列</label>
+                <select id="xColumn" class="form-select" onchange="renderChart()">
+                    {% for col in columns %}
+                    <option value="{{ loop.index0 }}">{{ col }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold">Y 轴 / 数值列</label>
+                <select id="yColumn" class="form-select" onchange="renderChart()">
+                    {% for col in columns %}
+                    <option value="{{ loop.index0 }}" {% if loop.index0 == 1 %}selected{% endif %}>{{ col }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary w-100 mb-2" onclick="renderChart()">🔄 生成图表</button>
+                <button class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#saveChartModal">💾 保存图表</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 图表区域 -->
+<div class="card mb-4 shadow-sm">
+    <div class="card-body">
+        <div id="mainChart" style="width:100%;height:450px;"></div>
+    </div>
+</div>
+
+<!-- 数据表格 -->
+<div class="card shadow-sm">
+    <div class="card-header fw-bold">📋 数据表格</div>
+    <div class="card-body p-0">
+        <div class="table-responsive" style="max-height:500px;overflow-y:auto;">
+            <table class="table table-striped table-hover mb-0">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th>#</th>
+                        {% for col in columns %}
+                        <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in data_rows %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        {% for cell in row %}
+                        <td>{{ cell if cell is not none else '' }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 保存图表模态框 -->
+<div class="modal fade" id="saveChartModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">💾 保存图表</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('chart.save') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="dataset_id" value="{{ dataset.id }}">
+                    <input type="hidden" id="saveChartType" name="chart_type">
+                    <input type="hidden" id="saveXColumn" name="x_column">
+                    <input type="hidden" id="saveYColumn" name="y_column">
+                    <div class="mb-3">
+                        <label for="chartName" class="form-label">图表名称</label>
+                        <input type="text" class="form-control" id="chartName" name="name"
+                               placeholder="例如：{{ dataset.name }} - 柱状图">
+                    </div>
+                    <div class="alert alert-light mb-0 small">
+                        <strong>当前配置：</strong><br>
+                        类型: <span id="modalChartType">-</span> |
+                        X轴: <span id="modalXCol">-</span> |
+                        Y轴: <span id="modalYCol">-</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-success">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+const columnNames = {{ columns|tojson }};
+const rawData = {
+    columns: columnNames,
+    rows: {{ data_rows|tojson }}
+};
+
+const chartDom = document.getElementById('mainChart');
+const myChart = echarts.init(chartDom);
+
+function renderChart() {
+    const chartType = document.getElementById('chartType').value;
+    const xIdx = parseInt(document.getElementById('xColumn').value);
+    const yIdx = parseInt(document.getElementById('yColumn').value);
+
+    const xData = rawData.rows.map(r => r[xIdx] !== null ? String(r[xIdx]) : '');
+    const yData = rawData.rows.map(r => {
+        const v = r[yIdx];
+        if (v === null || v === undefined || v === '') return null;
+        const n = Number(v);
+        return isNaN(n) ? null : n;
+    });
+
+    const filtered = [];
+    for (let i = 0; i < xData.length; i++) {
+        if (yData[i] !== null) {
+            filtered.push({ x: xData[i], y: yData[i] });
+        }
+    }
+    const fxData = filtered.map(d => d.x);
+    const fyData = filtered.map(d => d.y);
+
+    let option;
+    if (chartType === 'pie') {
+        option = {
+            title: { text: columnNames[yIdx] + ' 分布', left: 'center' },
+            tooltip: { trigger: 'item' },
+            series: [{
+                type: 'pie',
+                radius: ['30%', '65%'],
+                data: fxData.map((name, i) => ({ name, value: fyData[i] })),
+                emphasis: {
+                    itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.5)' }
+                }
+            }]
+        };
+    } else {
+        option = {
+            title: { text: columnNames[yIdx], left: 'center' },
+            tooltip: { trigger: 'axis' },
+            xAxis: {
+                type: 'category',
+                data: fxData,
+                axisLabel: { rotate: fxData.length > 10 ? 45 : 0 }
+            },
+            yAxis: { type: 'value' },
+            series: [{
+                name: columnNames[yIdx],
+                type: chartType,
+                data: fyData,
+                smooth: chartType === 'line',
+                itemStyle: { color: '#0d6efd' }
+            }]
+        };
+    }
+
+    myChart.setOption(option, true);
+
+    // 同步更新保存表单中的隐藏字段
+    document.getElementById('saveChartType').value = chartType;
+    document.getElementById('saveXColumn').value = columnNames[xIdx];
+    document.getElementById('saveYColumn').value = columnNames[yIdx];
+
+    // 同步更新模态框中的预览信息
+    document.getElementById('modalChartType').textContent = chartType;
+    document.getElementById('modalXCol').textContent = columnNames[xIdx];
+    document.getElementById('modalYCol').textContent = columnNames[yIdx];
+}
+
+// 初始渲染
+renderChart();
+
+// 窗口大小变化时自适应
+window.addEventListener('resize', () => myChart.resize());
+</script>
+{% else %}
+<div class="alert alert-warning">该数据集没有数据或列信息。</div>
+{% endif %}
+{% endblock %}
+{% block extra_scripts %}
+{% endblock %}

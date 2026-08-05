@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}数据集列表 - 南理工3D打印数据库{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>数据集列表</h2>
+    <a href="{{ url_for('excel.upload') }}" class="btn btn-success">+ 上传 Excel</a>
+</div>
+
+{% if datasets %}
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>#</th>
+                <th>名称</th>
+                <th>原始文件</th>
+                <th>数据行数</th>
+                <th>上传时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ds in datasets %}
+            <tr>
+                <td>{{ ds.id }}</td>
+                <td><strong>{{ ds.name }}</strong></td>
+                <td><code>{{ ds.original_filename }}</code></td>
+                <td><span class="badge bg-info">{{ ds.row_count }}</span></td>
+                <td>{{ ds.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    <a href="{{ url_for('excel.view_dataset', dataset_id=ds.id) }}"
+                       class="btn btn-sm btn-primary">查看</a>
+                    <form method="POST" action="{{ url_for('excel.delete_dataset', dataset_id=ds.id) }}"
+                          style="display:inline" onsubmit="return confirm('确定删除此数据集？')">
+                        <button type="submit" class="btn btn-sm btn-danger">删除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-5">
+    <h4 class="text-muted">暂无数据集</h4>
+    <p>点击右上角按钮上传你的第一个 Excel 文件</p>
+    <a href="{{ url_for('excel.upload') }}" class="btn btn-success">上传 Excel</a>
+</div>
+{% endif %}
+{% endblock %}

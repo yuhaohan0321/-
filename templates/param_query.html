@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}参数查询 - 数据管理平台{% endblock %}
+{% block extra_head %}
+{% if results is not none %}
+<script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script>
+{% endif %}
+{% endblock %}
+{% block content %}
+<h2 class="mb-4">🔍 参数条件查询</h2>
+
+<!-- 步骤1: 选择数据集 -->
+{% if not dataset %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header fw-bold">选择数据集</div>
+    <div class="card-body">
+        {% if datasets %}
+        <div class="row g-3">
+            {% for ds in datasets %}
+            <div class="col-md-4 col-lg-3">
+                <a href="{{ url_for('param_query.query', dataset_id=ds.id) }}"
+                   class="card text-decoration-none shadow-sm h-100">
+                    <div class="card-body text-center">
+                        <h6>{{ ds.name }}</h6>
+                        <small class="text-muted">{{ ds.row_count }} 条 | {{ ds.created_at.strftime('%m/%d') }}</small>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted">暂无数据集，请先上传 Excel 数据。</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- 步骤2: 设定参数条件 -->
+{% if dataset %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+        <span>设定查询条件 — {{ dataset.name }}</span>
+        <span class="badge bg-info">{{ dataset.row_count }} 条数据</span>
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:25%">参数列</th>
+                            <th style="width:20%">条件</th>
+                            <th style="width:55%">值</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for col in columns %}
+                        <tr>
+                            <td><strong>{{ col }}</strong></td>
+                            <td>
+                                <select name="op_{{ loop.index0 }}" class="form-select form-select-sm">
+                                    <option value="">-- 不限 --</option>
+                                    <option value="=" {% if selected and selected.get(col) and selected[col].operator == '=' %}selected{% endif %}>等于 =</option>
+                                    <option value=">" {% if selected and selected.get(col) and selected[col].operator == '>' %}selected{% endif %}>大于 ></option>
+                                    <option value="<" {% if selected and selected.get(col) and selected[col].operator == '<' %}selected{% endif %}>小于 <</option>
+                                    <option value=">=" {% if selected and selected.get(col) and selected[col].operator == '>=' %}selected{% endif %}>大于等于 >=</option>
+                                    <option value="<=" {% if selected and selected.get(col) and selected[col].operator == '<=' %}selected{% endif %}>小于等于 <=</option>
+                                    <option value="between" {% if selected and selected.get(col) and selected[col].operator == 'between' %}selected{% endif %}>范围 (min,max)</option>
+                                    <option value="like" {% if selected and selected.get(col) and selected[col].operator == 'like' %}selected{% endif %}>包含</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input type="text" name="val_{{ loop.index0 }}" class="form-control form-control-sm"
+                                       placeholder="输入值，范围用逗号分隔"
+                                       value="{{ selected[col].value if selected and selected.get(col) else '' }}">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button type="submit" class="btn btn-primary">🔍 执行查询</button>
+                <a href="{{ url_for('param_query.query', dataset_id=dataset.id) }}" class="btn btn-outline-secondary">清空条件</a>
+                <a href="{{ url_for('param_query.index') }}" class="btn btn-outline-secondary">换数据集</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- 步骤3: 查询结果 -->
+{% if results is not none %}
+<div class="card shadow-sm">
+    <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+        <span>查询结果</span>
+        <span class="badge bg-success">{{ results|length }} 条匹配</span>
+    </div>
+    <div class="card-body p-0">
+        {% if results %}
+        <!-- 图表区域 -->
+        <div class="p-3">
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-auto">
+                    <label class="form-label small fw-bold mb-0">图表类型</label>
+                    <select id="resultChartType" class="form-select form-select-sm" onchange="renderResultChart()">
+                        <option value="bar">柱状图</option>
+                        <option value="line" selected>折线图</option>
+                        <option value="scatter">散点图</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <label class="form-label small fw-bold mb-0">X 轴</label>
+                    <select id="resultXCol" class="form-select form-select-sm" onchange="renderResultChart()">
+                        {% for col in columns %}
+                        <option value="{{ loop.index0 }}">{{ col }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <label class="form-label small fw-bold mb-0">Y 轴</label>
+                    <select id="resultYCol" class="form-select form-select-sm" onchange="renderResultChart()">
+                        {% for col in columns %}
+                        <option value="{{ loop.index0 }}" {% if loop.index0 == columns|length - 3 %}selected{% endif %}>{{ col }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div id="resultChart" style="width:100%;height:350px;"></div>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="table-responsive" style="max-height:400px;overflow-y:auto;">
+            <table class="table table-striped table-hover mb-0">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        {% for col in columns %}
+                        <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results %}
+                    <tr>
+                        {% for cell in row %}
+                        <td>{{ cell if cell is not none else '' }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-4 text-center text-muted">
+            <div class="display-4 mb-2">🔍</div>
+            <p>未找到匹配的数据，请调整查询条件</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% if results is not none and results %}
+<script>
+const resultColumns = {{ columns|tojson }};
+const resultRows = {{ results|tojson }};
+
+const resultChartDom = document.getElementById('resultChart');
+const resultChart = echarts.init(resultChartDom);
+
+function renderResultChart() {
+    const chartType = document.getElementById('resultChartType').value;
+    const xIdx = parseInt(document.getElementById('resultXCol').value);
+    const yIdx = parseInt(document.getElementById('resultYCol').value);
+
+    const xData = resultRows.map(r => r[xIdx] !== null ? String(r[xIdx]) : '');
+    const yData = resultRows.map(r => {
+        const v = r[yIdx];
+        if (v === null || v === undefined || v === '') return null;
+        const n = Number(v);
+        return isNaN(n) ? null : n;
+    });
+
+    const filtered = [];
+    for (let i = 0; i < xData.length; i++) {
+        if (yData[i] !== null) {
+            filtered.push({ x: xData[i], y: yData[i] });
+        }
+    }
+    const fxData = filtered.map(d => d.x);
+    const fyData = filtered.map(d => d.y);
+
+    const option = {
+        title: { text: resultColumns[yIdx], left: 'center' },
+        tooltip: { trigger: 'axis' },
+        xAxis: {
+            type: 'category',
+            data: fxData,
+            axisLabel: { rotate: fxData.length > 10 ? 45 : 0 }
+        },
+        yAxis: { type: 'value' },
+        series: [{
+            name: resultColumns[yIdx],
+            type: chartType,
+            data: fyData,
+            smooth: chartType === 'line',
+            itemStyle: { color: '#198754' }
+        }]
+    };
+
+    resultChart.setOption(option, true);
+}
+
+renderResultChart();
+window.addEventListener('resize', () => resultChart.resize());
+</script>
+{% endif %}
+{% endblock %}

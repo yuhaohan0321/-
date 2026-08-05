@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}首页 - 南理工3D打印数据库{% endblock %}
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2>欢迎使用南理工3D打印数据库</h2>
+        <p class="text-muted">本地离线的 Web 数据库应用，支持 Excel 导入与可视化、图片视频管理。</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body text-center">
+                <div class="display-4 mb-3">数据集</div>
+                <h5 class="card-title">数据集管理</h5>
+                <p class="card-text text-muted">上传 Excel 文件，自动解析并存入数据库，支持图表可视化。</p>
+                <a href="{{ url_for('excel.datasets') }}" class="btn btn-primary">进入管理</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body text-center">
+                <div class="display-4 mb-3">媒体</div>
+                <h5 class="card-title">媒体库</h5>
+                <p class="card-text text-muted">上传图片和视频文件，在线浏览和播放。</p>
+                <a href="{{ url_for('media.gallery') }}" class="btn btn-primary">进入管理</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body text-center">
+                <div class="display-4 mb-3">图表</div>
+                <h5 class="card-title">ECharts 可视化</h5>
+                <p class="card-text text-muted">选择数据集中的任意列，生成柱状图、折线图等多种图表。</p>
+                <a href="{{ url_for('excel.datasets') }}" class="btn btn-primary">查看数据</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

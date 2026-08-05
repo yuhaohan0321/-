@@ -1,0 +1,272 @@
+﻿{% extends "base.html" %}
+{% block title %}3D打印工艺参数计算器{% endblock %}
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script>
+{% endblock %}
+{% block content %}
+<h2 class="mb-2">🏭 3D打印工艺参数计算器</h2>
+<p class="text-muted mb-4">选择并调整打印参数，计算预估时间、耗材用量、成本及质量指标</p>
+
+<form method="POST">
+    <div class="row g-4">
+        <!-- 材料选择 -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header fw-bold">🧱 材料选择</div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        {% for name, mat in materials.items() %}
+                        <div class="col-6 col-md-4 col-lg-6 col-xl-4">
+                            <input type="radio" class="btn-check" name="material"
+                                   id="mat_{{ name }}" value="{{ name }}"
+                                   {% if params.material == name %}checked{% endif %}
+                                   onchange="updateMaterialInfo()">
+                            <label class="btn btn-outline-secondary w-100 text-start p-2" for="mat_{{ name }}"
+                                   style="border-left: 4px solid {{ mat.color }};">
+                                <strong>{{ name }}</strong><br>
+                                <small class="text-muted">{{ mat.desc[:12] }}...</small>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div id="materialInfo" class="alert alert-light mt-3 mb-0 small">
+                        <strong id="matInfoName">PLA</strong>：
+                        密度 <span id="matInfoDensity">1.24</span> g/cm³ |
+                        参考喷嘴温度 <span id="matInfoNozzle">200</span>°C |
+                        参考热床温度 <span id="matInfoBed">60</span>°C |
+                        单价 ¥<span id="matInfoCost">25</span>/kg
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 打印参数 -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header fw-bold">⚙️ 打印参数</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label d-flex justify-content-between">
+                            <span>层高</span>
+                            <strong id="lhVal">{{ params.layer_height }}</strong> mm
+                        </label>
+                        <input type="range" class="form-range" name="layer_height"
+                               min="0.05" max="0.3" step="0.05"
+                               value="{{ params.layer_height }}"
+                               oninput="document.getElementById('lhVal').textContent = parseFloat(this.value).toFixed(2)">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label d-flex justify-content-between">
+                            <span>填充密度</span>
+                            <strong id="infillVal">{{ params.infill }}</strong>%
+                        </label>
+                        <input type="range" class="form-range" name="infill"
+                               min="5" max="100" step="5"
+                               value="{{ params.infill }}"
+                               oninput="document.getElementById('infillVal').textContent = this.value">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label d-flex justify-content-between">
+                            <span>打印速度</span>
+                            <strong id="speedVal">{{ params.speed }}</strong> mm/s
+                        </label>
+                        <input type="range" class="form-range" name="speed"
+                               min="20" max="120" step="5"
+                               value="{{ params.speed }}"
+                               oninput="document.getElementById('speedVal').textContent = this.value">
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label">壁厚 (mm)</label>
+                            <input type="number" class="form-control" name="wall_thickness"
+                                   value="{{ params.wall_thickness }}" min="0.4" max="3.0" step="0.1">
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label">喷嘴 (mm)</label>
+                            <select class="form-select" name="nozzle_dia">
+                                <option value="0.2" {% if params.nozzle_dia == 0.2 %}selected{% endif %}>0.2</option>
+                                <option value="0.4" {% if params.nozzle_dia == 0.4 %}selected{% endif %}>0.4</option>
+                                <option value="0.6" {% if params.nozzle_dia == 0.6 %}selected{% endif %}>0.6</option>
+                                <option value="0.8" {% if params.nozzle_dia == 0.8 %}selected{% endif %}>0.8</option>
+                                <option value="1.0" {% if params.nozzle_dia == 1.0 %}selected{% endif %}>1.0</option>
+                            </select>
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label">体积 (cm³)</label>
+                            <input type="number" class="form-control" name="part_volume"
+                                   value="{{ params.part_volume }}" min="1" max="1000" step="0.5">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 mt-3">🔍 计算结果</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% if results %}
+<!-- 计算结果 -->
+<div class="row g-3 mt-4">
+    <div class="col-md-3 col-6">
+        <div class="card shadow-sm text-center h-100">
+            <div class="card-body">
+                <div class="display-6 text-primary">⏱️</div>
+                <h3 class="mb-0">{{ results.print_time }}</h3>
+                <small class="text-muted">预计打印时间 (分钟)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card shadow-sm text-center h-100">
+            <div class="card-body">
+                <div class="display-6 text-success">⚖️</div>
+                <h3 class="mb-0">{{ results.material_weight }}</h3>
+                <small class="text-muted">耗材用量 (克)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card shadow-sm text-center h-100">
+            <div class="card-body">
+                <div class="display-6 text-warning">💰</div>
+                <h3 class="mb-0">¥{{ results.total_cost }}</h3>
+                <small class="text-muted">预估成本 (元)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card shadow-sm text-center h-100">
+            <div class="card-body">
+                <div class="display-6 text-info">🌡️</div>
+                <h3 class="mb-0">{{ results.nozzle_temp }} / {{ results.bed_temp }}</h3>
+                <small class="text-muted">喷嘴/热床温度 (°C)</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 质量指标 -->
+<div class="row g-3 mt-1 mb-4">
+    <div class="col-sm-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">表面质量评分</span>
+                    <span class="badge bg-{{ 'success' if results.surface_quality >= 7 else 'warning' if results.surface_quality >= 4 else 'danger' }} fs-6">{{ results.surface_quality }} / 10</span>
+                </div>
+                <div class="progress mt-2" style="height:10px;">
+                    <div class="progress-bar bg-{{ 'success' if results.surface_quality >= 7 else 'warning' if results.surface_quality >= 4 else 'danger' }}"
+                         style="width:{{ results.surface_quality * 10 }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">强度评分</span>
+                    <span class="badge bg-{{ 'success' if results.strength >= 7 else 'warning' if results.strength >= 4 else 'danger' }} fs-6">{{ results.strength }} / 10</span>
+                </div>
+                <div class="progress mt-2" style="height:10px;">
+                    <div class="progress-bar bg-{{ 'success' if results.strength >= 7 else 'warning' if results.strength >= 4 else 'danger' }}"
+                         style="width:{{ results.strength * 10 }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 对比图表 -->
+{% if compare_data %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header fw-bold">📊 各填充率对比</div>
+    <div class="card-body">
+        <div id="compareChart" style="width:100%;height:350px;"></div>
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+
+<script>
+// 材料数据
+const materialData = {
+{% for name, mat in materials.items() %}
+    "{{ name }}": {
+        density: {{ mat.density }},
+        cost_per_kg: {{ mat.cost_per_kg }},
+        nozzle_temp: {{ mat.nozzle_temp }},
+        bed_temp: {{ mat.bed_temp }}
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+};
+
+function updateMaterialInfo() {
+    const selected = document.querySelector('input[name="material"]:checked');
+    if (!selected) return;
+    const m = materialData[selected.value];
+    document.getElementById('matInfoName').textContent = selected.value;
+    document.getElementById('matInfoDensity').textContent = m.density;
+    document.getElementById('matInfoNozzle').textContent = m.nozzle_temp;
+    document.getElementById('matInfoBed').textContent = m.bed_temp;
+    document.getElementById('matInfoCost').textContent = m.cost_per_kg;
+}
+
+// 初始化材料信息
+updateMaterialInfo();
+
+{% if compare_data %}
+// 填充率对比图表
+(function() {
+    const cd = {{ compare_data|tojson }};
+    const chartDom = document.getElementById('compareChart');
+    const chart = echarts.init(chartDom);
+
+    const option = {
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['打印时间(min)', '耗材重量(g)', '成本(¥)', '强度评分'] },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: cd.map(d => d.infill + '%'),
+            name: '填充率'
+        },
+        yAxis: { type: 'value' },
+        series: [
+            {
+                name: '打印时间(min)',
+                type: 'line',
+                smooth: true,
+                data: cd.map(d => d.time),
+                itemStyle: { color: '#0d6efd' }
+            },
+            {
+                name: '耗材重量(g)',
+                type: 'line',
+                smooth: true,
+                data: cd.map(d => d.weight),
+                itemStyle: { color: '#198754' }
+            },
+            {
+                name: '成本(¥)',
+                type: 'bar',
+                data: cd.map(d => d.cost),
+                itemStyle: { color: '#ffc107' }
+            },
+            {
+                name: '强度评分',
+                type: 'line',
+                smooth: true,
+                data: cd.map(d => d.strength),
+                itemStyle: { color: '#dc3545' }
+            }
+        ]
+    };
+
+    chart.setOption(option);
+    window.addEventListener('resize', () => chart.resize());
+})();
+{% endif %}
+</script>
+{% endblock %}

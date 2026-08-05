@@ -1,0 +1,29 @@
+﻿# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.idea/
+*.iml
+
+# Uploaded user data
+uploads/
+
+# Test data files
+*.xlsx
+*.xls
+*.csv
+*.tsv
+
+# Virtual environment
+venv/
+env/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Diagnosis / temp scripts
+diagnose.py

@@ -1,0 +1,31 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <!-- 圆形背景 -->
+  <circle cx="200" cy="200" r="195" fill="#1a237e" stroke="#0d47a1" stroke-width="4"/>
+  <circle cx="200" cy="200" r="180" fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.3"/>
+  <circle cx="200" cy="200" r="175" fill="none" stroke="#ffffff" stroke-width="0.5" opacity="0.15"/>
+
+  <!-- 书本图案 -->
+  <path d="M120 280 L120 180 L200 200 L200 300 Z" fill="#ffffff" opacity="0.9"/>
+  <path d="M280 280 L280 180 L200 200 L200 300 Z" fill="#ffffff" opacity="0.7"/>
+  <line x1="120" y1="180" x2="280" y2="180" stroke="#ffffff" stroke-width="2" opacity="0.6"/>
+
+  <!-- 星星 -->
+  <polygon points="200,130 208,155 235,155 213,170 221,195 200,180 179,195 187,170 165,155 192,155"
+           fill="#ffd700" stroke="#ffc107" stroke-width="1"/>
+
+  <!-- 齿轮底部 -->
+  <path d="M155 300 L155 340 L165 345 L200 350 L235 345 L245 340 L245 300"
+        fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.7"/>
+
+  <!-- 校名文字 -->
+  <text x="200" y="375" text-anchor="middle" font-size="20" fill="#ffffff"
+        font-family="SimHei, Microsoft YaHei, sans-serif" font-weight="bold">南京理工大学</text>
+
+  <!-- NJUST 缩写 -->
+  <text x="200" y="230" text-anchor="middle" font-size="28" fill="#ffffff"
+        font-family="Arial, sans-serif" font-weight="bold" letter-spacing="4">NJUST</text>
+
+  <!-- 1953 建校年份 -->
+  <text x="200" y="265" text-anchor="middle" font-size="14" fill="#ffffff" opacity="0.8"
+        font-family="Arial, sans-serif">1953</text>
+</svg>
