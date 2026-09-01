@@ -4,7 +4,7 @@
 import os
 import sys
 from flask import Flask, render_template
-from flask_login import LoginManager
+from flask_login import LoginManager, login_required
 
 from config import SECRET_KEY, SQLALCHEMY_DATABASE_URI, UPLOAD_FOLDER, DEFAULT_ADMIN
 from models import db, User
@@ -64,8 +64,18 @@ def create_app():
     app.register_blueprint(print_bp)
 
     @app.route("/")
+    @login_required
     def index():
-        return render_template("index.html")
+        from models import Dataset, MediaFile, SavedChart
+        from sqlalchemy import func
+        stats = {
+            "datasets": Dataset.query.count(),
+            "media": MediaFile.query.count(),
+            "charts": SavedChart.query.count(),
+            "rows": db.session.query(func.sum(Dataset.row_count)).scalar() or 0,
+        }
+        recent_datasets = Dataset.query.order_by(Dataset.created_at.desc()).limit(5).all()
+        return render_template("index.html", stats=stats, recent_datasets=recent_datasets)
 
     @app.errorhandler(404)
     def not_found(e):

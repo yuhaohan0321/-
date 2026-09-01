@@ -1,52 +1,44 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录 - 南理工3D打印数据库</title>
+    <title>登录 - 南理工 3D打印数据库</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body class="bg-light">
-    <div class="container">
-        <div class="row justify-content-center mt-5">
-            <div class="col-md-5 col-lg-4">
-                <div class="text-center mb-4">
-                    <img src="{{ url_for('static', filename='images/njust_logo.jpg') }}"
-                         alt="南京理工大学校徽" style="width:120px;height:120px;margin-bottom:16px;">
-                    <h2 class="fw-bold">南理工3D打印数据库</h2>
-                    <p class="text-muted">请登录以继续</p>
-                </div>
-
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
-
-                <div class="card shadow-sm">
-                    <div class="card-body p-4">
-                        <form method="POST" action="{{ url_for('auth.login') }}">
-                            <div class="mb-3">
-                                <label for="username" class="form-label">用户名</label>
-                                <input type="text" class="form-control" id="username"
-                                       name="username" placeholder="请输入用户名" required autofocus>
-                            </div>
-                            <div class="mb-3">
-                                <label for="password" class="form-label">密码</label>
-                                <input type="password" class="form-control" id="password"
-                                       name="password" placeholder="请输入密码" required>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">登 录</button>
-                        </form>
-                    </div>
-                </div>
+<body>
+    <div class="login-wrapper">
+        <div class="login-brand">
+            <div class="logo-circle">
+                <img src="{{ url_for('static', filename='images/njust_logo.jpg') }}" alt="南京理工大学校徽">
             </div>
+            <div class="brand-title">南理工 3D打印数据库</div>
+            <div class="brand-subtitle">NUST 3D Printing Database System</div>
+            <ul class="brand-features">
+                <li>Excel / CSV 数据导入与管理</li>
+                <li>ECharts 交互式数据可视化</li>
+                <li>图片视频媒体资源管理</li>
+            </ul>
+        </div>
+        <div class="login-form-area">
+            <div class="form-title">欢迎登录</div>
+            <div class="form-subtitle">请输入账号密码进入系统</div>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }}">{{ message }}</div>
+                {% endfor %}
+            {% endwith %}
+            <form method="POST" action="{{ url_for('auth.login') }}">
+                <div class="form-group">
+                    <input type="text" class="form-control" name="username" placeholder="用户名" required autofocus>
+                </div>
+                <div class="form-group">
+                    <input type="password" class="form-control" name="password" placeholder="密码" required>
+                </div>
+                <button type="submit" class="btn-login">登 录</button>
+            </form>
+            <div class="login-footer">© 2026 南京理工大学 · 3D打印数据库系统</div>
         </div>
     </div>
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
